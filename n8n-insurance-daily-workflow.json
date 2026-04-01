@@ -1,0 +1,178 @@
+{
+  "nodes": [
+    {
+      "id": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 6,
+              "triggerAtMinute": 0
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e",
+      "name": "RSS Read",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1,
+      "position": [
+        250,
+        0
+      ],
+      "parameters": {
+        "url": "https://news.google.com/rss/search?q=life+insurance+USA+when:24h&hl=en-US&gl=US&ceid=US:en"
+      }
+    },
+    {
+      "id": "c3d4e5f6-a7b8-4c9d-0e1f-2a3b4c5d6e7f",
+      "name": "Limit Items",
+      "type": "n8n-nodes-base.itemLists",
+      "typeVersion": 3,
+      "position": [
+        500,
+        0
+      ],
+      "parameters": {
+        "operation": "limit",
+        "maxItems": 3
+      }
+    },
+    {
+      "id": "d4e5f6a7-b8c9-4d0e-1f2a-3b4c5d6e7f80",
+      "name": "Google Gemini",
+      "type": "n8n-nodes-base.googleGemini",
+      "typeVersion": 1,
+      "position": [
+        750,
+        0
+      ],
+      "credentials": {
+        "googleGeminiApi": {
+          "id": "",
+          "name": "googleGeminiApi"
+        }
+      },
+      "parameters": {
+        "resource": "chat",
+        "operation": "generate",
+        "model": "gemini-1.5-flash",
+        "prompt": "你是一名资深美国保险经纪人。请将以下英文新闻重写为适合在网页上展示的中文图文素材。要求：1. 语气亲切专业，面向美国华人客户，解释该事件对家庭财务或退休规划的意义。2. 内容必须包含良好的 HTML 排版：使用 <h3> 突出重点，使用 <p> 分段，适当使用 <b> 加粗核心概念，使用 <ul><li> 罗列要点。字数 300 字左右。3. 请为这篇文章构思一张配图，用一段纯英文描述这个画面（比如：a happy family walking in the park at sunset, warm light, high quality）。必须以严格的 JSON 格式输出，不要包含 markdown 代码块。JSON 结构如下：{\"zh_title\": \"吸引人的中文标题\", \"zh_content_html\": \"带有 HTML 标签的中文正文\", \"image_prompt\": \"你的纯英文配图画面描述\"}。英文标题：{{$json.title}}，英文链接：{{$json.link}}"
+      }
+    },
+    {
+      "id": "e5f6a7b8-c9d0-4e1f-2a3b-4c5d6e7f8091",
+      "name": "Google Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        1000,
+        0
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "",
+          "name": "googleSheetsOAuth2Api"
+        }
+      },
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "",
+          "mode": "list"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "",
+          "mode": "list"
+        },
+        "options": {},
+        "columns": {
+          "mappingMode": "defineBelow",
+          "values": [
+            {
+              "column": "Title",
+              "value": "={{ $json.message.content.zh_title }}"
+            },
+            {
+              "column": "Content",
+              "value": "={{ $json.message.content.zh_content_html }}"
+            },
+            {
+              "column": "Original URL",
+              "value": "={{ $('RSS Read').item.json.link }}"
+            },
+            {
+              "column": "Date",
+              "value": "={{ $now }}"
+            },
+            {
+              "column": "Status",
+              "value": "Published"
+            },
+            {
+              "column": "Image URL",
+              "value": "={{ 'https://image.pollinations.ai/prompt/' + encodeURIComponent($json.message.content.image_prompt) }}"
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "RSS Read",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RSS Read": {
+      "main": [
+        [
+          {
+            "node": "Limit Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Limit Items": {
+      "main": [
+        [
+          {
+            "node": "Google Gemini",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini": {
+      "main": [
+        [
+          {
+            "node": "Google Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}
