@@ -261,3 +261,7 @@ Insurance Broker (platform user) → selects content → forwards to → US Chin
 ## License
 
 Private project. All rights reserved.
+
+## Workflow Review
+
+See `WORKFLOW_REVIEW_AND_UPGRADE_PLAN.md` for a production-grade n8n upgrade plan and a detailed audit of the current workflows.
