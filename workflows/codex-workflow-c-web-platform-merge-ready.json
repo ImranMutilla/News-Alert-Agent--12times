@@ -1,0 +1,228 @@
+{
+  "name": "Codex Module C - Web Platform (Template Rendering)",
+  "nodes": [
+    {
+      "id": "70a1b2c3-d4e5-4fab-89cd-ef0123456701",
+      "name": "Web Request",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "insurance-portal",
+      "parameters": {
+        "path": "insurance-portal",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      }
+    },
+    {
+      "id": "71b2c3d4-e5f6-4abc-9def-012345678902",
+      "name": "Parse Route",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        300,
+        0
+      ],
+      "parameters": {
+        "jsCode": "// === Parse request parameters to determine what to display ===\nconst query = $input.first().json.query || {};\nconst page = query.page || 'home';        // home | newsletter | library | article\nconst date = query.date || '';             // YYYY-MM-DD filter\nconst category = query.category || '';     // category filter\nconst id = query.id || '';                 // specific article row number\nconst type = query.type || '';             // newsletter | library\n\nreturn [{\n  json: {\n    page,\n    date,\n    category,\n    id,\n    type,\n    today: new Date().toISOString().split('T')[0]\n  }\n}];"
+      }
+    },
+    {
+      "id": "72c3d4e5-f6a7-4bcd-aef0-123456789003",
+      "name": "Read Newsletter Data",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        600,
+        -120
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "",
+          "name": "googleSheetsOAuth2Api"
+        }
+      },
+      "parameters": {
+        "operation": "read",
+        "documentId": {
+          "__rl": true,
+          "value": "",
+          "mode": "list"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "newsletter",
+          "mode": "list"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "73d4e5f6-a7b8-4cde-bf01-234567890004",
+      "name": "Read Library Data",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        600,
+        120
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "",
+          "name": "googleSheetsOAuth2Api"
+        }
+      },
+      "parameters": {
+        "operation": "read",
+        "documentId": {
+          "__rl": true,
+          "value": "",
+          "mode": "list"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "content_library",
+          "mode": "list"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "74e5f6a7-b8c9-4def-c012-345678900105",
+      "name": "Merge Data",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        900,
+        0
+      ],
+      "parameters": {
+        "mode": "append"
+      }
+    },
+    {
+      "id": "75f6a7b8-c9d0-4ef0-d123-456789010206",
+      "name": "Render HTML Template",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        0
+      ],
+      "parameters": {
+        "jsCode": "// === Render HTML from predefined template (no AI generation) ===\nconst allItems = $input.all().map(i => i.json);\n\n// Get route params from the first Code node via $('Parse Route')\nconst routeData = $('Parse Route').first().json;\nconst { page, date, category, type: contentType, today } = routeData;\n\n// Separate newsletter and library items\nconst newsletterItems = allItems.filter(i => i['Content Type'] === 'newsletter' || i['Source'] === undefined);\nconst libraryItems = allItems.filter(i => i['Source'] === 'ai_generated');\n\n// Filter by date if specified\nconst filterByDate = (items, d) => d ? items.filter(i => (i['Date'] || '').startsWith(d)) : items;\nconst filterByCat = (items, c) => c ? items.filter(i => (i['Category'] || '') === c) : items;\n\n// Get unique dates for archive nav\nconst getUniqueDates = (items) => [...new Set(items.map(i => i['Date']).filter(Boolean))].sort().reverse();\n\n// Category labels\nconst catLabels = {\n  'life_insurance': '人寿保险',\n  'annuity': '年金产品',\n  'retirement': '退休规划',\n  'family_finance': '家庭财务',\n  'industry_news': '行业动态',\n  'regulation': '政策法规',\n  'education': '保险科普',\n  'product_intro': '产品介绍',\n  'case_study': '案例分享',\n  'client_communication': '客户沟通'\n};\n\n// Build article card HTML\nfunction buildCard(item, idx) {\n  const title = item['Chinese Title'] || '未命名';\n  const summary = item['Chinese Summary'] || '';\n  const imageUrl = item['Image URL'] || '';\n  const cat = item['Category'] || '';\n  const catLabel = catLabels[cat] || cat;\n  const itemDate = item['Date'] || '';\n  const status = item['Status'] || '';\n  const tags = (item['Tags'] || '').split(',').map(t => t.trim()).filter(Boolean);\n\n  return `\n    <div class=\"card\">\n      ${imageUrl ? `<div class=\"card-img\"><img src=\"${imageUrl}\" alt=\"${title}\" loading=\"lazy\" onerror=\"this.parentElement.style.display='none'\"></div>` : ''}\n      <div class=\"card-body\">\n        <div class=\"card-meta\">\n          <span class=\"badge badge-cat\">${catLabel}</span>\n          ${status === 'pending_review' ? '<span class=\"badge badge-review\">待审核</span>' : ''}\n          <span class=\"card-date\">${itemDate}</span>\n        </div>\n        <h3 class=\"card-title\">${title}</h3>\n        <p class=\"card-summary\">${summary}</p>\n        <div class=\"card-tags\">${tags.map(t => `<span class=\"tag\">${t}</span>`).join('')}</div>\n      </div>\n    </div>`;\n}\n\n// Build article detail HTML\nfunction buildDetail(item) {\n  if (!item) return '<p>文章未找到</p>';\n  const title = item['Chinese Title'] || '';\n  const content = item['Chinese Content HTML'] || '';\n  const imageUrl = item['Image URL'] || '';\n  const originalLink = item['Original Link'] || '';\n  const itemDate = item['Date'] || '';\n  const cat = item['Category'] || '';\n\n  return `\n    <article class=\"article-detail\">\n      <a href=\"?page=home\" class=\"back-link\">&larr; 返回首页</a>\n      <h1>${title}</h1>\n      <div class=\"article-meta\">\n        <span class=\"badge badge-cat\">${catLabels[cat] || cat}</span>\n        <span>${itemDate}</span>\n      </div>\n      ${imageUrl ? `<div class=\"article-hero\"><img src=\"${imageUrl}\" alt=\"${title}\"></div>` : ''}\n      <div class=\"article-content\">${content}</div>\n      ${originalLink ? `<p class=\"source-link\">原始来源：<a href=\"${originalLink}\" target=\"_blank\">查看英文原文</a></p>` : ''}\n    </article>`;\n}\n\n// Determine page content\nlet pageTitle = '保险智汇 - 美国华人保险资讯平台';\nlet mainContent = '';\n\nif (page === 'article' && routeData.id) {\n  const allContent = [...newsletterItems, ...libraryItems];\n  const article = allContent[parseInt(routeData.id)] || null;\n  mainContent = buildDetail(article);\n  pageTitle = article ? article['Chinese Title'] + ' - 保险智汇' : '文章未找到';\n} else {\n  // Home page or filtered view\n  let displayNewsletter = filterByCat(filterByDate(newsletterItems, date || today), category);\n  let displayLibrary = filterByCat(filterByDate(libraryItems, date), category);\n\n  const newsletterDates = getUniqueDates(newsletterItems);\n  const categories = [...new Set([...newsletterItems, ...libraryItems].map(i => i['Category']).filter(Boolean))];\n\n  mainContent = `\n    <!-- Filter Bar -->\n    <div class=\"filter-bar\">\n      <div class=\"filter-group\">\n        <label>日期筛选：</label>\n        <select onchange=\"location.href='?page=${page}&date='+this.value+'&category=${category}'\">\n          <option value=\"\">全部日期</option>\n          ${newsletterDates.map(d => `<option value=\"${d}\" ${d === date ? 'selected' : ''}>${d}</option>`).join('')}\n        </select>\n      </div>\n      <div class=\"filter-group\">\n        <label>分类筛选：</label>\n        <select onchange=\"location.href='?page=${page}&date=${date}&category='+this.value\">\n          <option value=\"\">全部分类</option>\n          ${categories.map(c => `<option value=\"${c}\" ${c === category ? 'selected' : ''}>${catLabels[c] || c}</option>`).join('')}\n        </select>\n      </div>\n    </div>\n\n    <!-- Today Newsletter Section -->\n    <section class=\"section\">\n      <h2 class=\"section-title\">📰 今日保险晨报 <span class=\"section-date\">${date || today}</span></h2>\n      <div class=\"card-grid\">\n        ${displayNewsletter.length > 0 ? displayNewsletter.map((item, idx) => buildCard(item, idx)).join('') : '<p class=\"empty\">今日暂无晨报内容</p>'}\n      </div>\n    </section>\n\n    <!-- Content Library Section -->\n    <section class=\"section\">\n      <h2 class=\"section-title\">📚 保险素材库</h2>\n      <div class=\"card-grid\">\n        ${displayLibrary.length > 0 ? displayLibrary.map((item, idx) => buildCard(item, idx)).join('') : '<p class=\"empty\">暂无素材内容${date ? '（当前日期筛选）' : ''}</p>'}\n      </div>\n    </section>\n\n    <!-- Archive Section -->\n    <section class=\"section\">\n      <h2 class=\"section-title\">🗂️ 历史归档</h2>\n      <div class=\"archive-list\">\n        ${newsletterDates.slice(0, 30).map(d => `<a href=\"?page=home&date=${d}\" class=\"archive-item ${d === date ? 'active' : ''}\">${d} (${newsletterItems.filter(i => (i['Date']||'').startsWith(d)).length}篇)</a>`).join('')}\n      </div>\n    </section>`;\n}\n\n// Full HTML document\nconst baseTemplate = `<!DOCTYPE html>\n<html lang=\"zh-CN\">\n<head>\n  <meta charset=\"UTF-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n  <title>${pageTitle}</title>\n  <style>\n    * { margin: 0; padding: 0; box-sizing: border-box; }\n    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif; background: #f5f7fa; color: #333; line-height: 1.6; }\n    .header { background: linear-gradient(135deg, #1a365d 0%, #2563eb 100%); color: white; padding: 24px 0; text-align: center; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }\n    .header h1 { font-size: 28px; font-weight: 700; margin-bottom: 4px; }\n    .header p { font-size: 14px; opacity: 0.85; }\n    .nav { display: flex; justify-content: center; gap: 16px; margin-top: 12px; }\n    .nav a { color: white; text-decoration: none; padding: 6px 16px; border-radius: 20px; font-size: 14px; transition: background 0.2s; }\n    .nav a:hover, .nav a.active { background: rgba(255,255,255,0.2); }\n    .container { max-width: 1200px; margin: 0 auto; padding: 24px 16px; }\n    .filter-bar { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 24px; padding: 16px; background: white; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }\n    .filter-group { display: flex; align-items: center; gap: 8px; }\n    .filter-group label { font-size: 14px; color: #666; white-space: nowrap; }\n    .filter-group select { padding: 6px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; background: white; }\n    .section { margin-bottom: 40px; }\n    .section-title { font-size: 22px; font-weight: 700; margin-bottom: 16px; padding-bottom: 8px; border-bottom: 3px solid #2563eb; display: inline-block; }\n    .section-date { font-size: 14px; color: #888; font-weight: 400; margin-left: 8px; }\n    .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 20px; }\n    .card { background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.06); transition: transform 0.2s, box-shadow 0.2s; cursor: pointer; }\n    .card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.12); }\n    .card-img { height: 200px; overflow: hidden; background: #e2e8f0; }\n    .card-img img { width: 100%; height: 100%; object-fit: cover; }\n    .card-body { padding: 16px; }\n    .card-meta { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }\n    .badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 12px; font-weight: 500; }\n    .badge-cat { background: #e0edff; color: #1a56db; }\n    .badge-review { background: #fef3c7; color: #b45309; }\n    .card-date { font-size: 12px; color: #999; }\n    .card-title { font-size: 17px; font-weight: 600; margin-bottom: 8px; line-height: 1.4; }\n    .card-summary { font-size: 14px; color: #666; margin-bottom: 10px; }\n    .card-tags { display: flex; gap: 6px; flex-wrap: wrap; }\n    .tag { font-size: 12px; color: #888; background: #f3f4f6; padding: 2px 8px; border-radius: 4px; }\n    .archive-list { display: flex; flex-wrap: wrap; gap: 8px; }\n    .archive-item { display: inline-block; padding: 6px 14px; background: white; border: 1px solid #e5e7eb; border-radius: 8px; font-size: 14px; color: #555; text-decoration: none; transition: all 0.2s; }\n    .archive-item:hover, .archive-item.active { background: #2563eb; color: white; border-color: #2563eb; }\n    .empty { color: #999; font-size: 15px; padding: 40px; text-align: center; background: white; border-radius: 12px; }\n    .article-detail { max-width: 800px; margin: 0 auto; background: white; padding: 40px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }\n    .article-detail h1 { font-size: 26px; margin-bottom: 12px; }\n    .article-meta { display: flex; gap: 12px; align-items: center; margin-bottom: 20px; color: #888; font-size: 14px; }\n    .article-hero { margin-bottom: 24px; border-radius: 8px; overflow: hidden; }\n    .article-hero img { width: 100%; max-height: 400px; object-fit: cover; }\n    .article-content { font-size: 16px; line-height: 1.8; }\n    .article-content h3 { margin: 20px 0 10px; color: #1a365d; }\n    .article-content p { margin-bottom: 12px; }\n    .article-content ul { margin: 12px 0; padding-left: 24px; }\n    .article-content li { margin-bottom: 6px; }\n    .article-content blockquote { border-left: 4px solid #2563eb; padding: 12px 20px; margin: 16px 0; background: #f0f7ff; border-radius: 0 8px 8px 0; }\n    .source-link { margin-top: 24px; padding-top: 16px; border-top: 1px solid #eee; font-size: 14px; color: #888; }\n    .source-link a { color: #2563eb; }\n    .back-link { display: inline-block; margin-bottom: 20px; color: #2563eb; text-decoration: none; font-size: 14px; }\n    .footer { text-align: center; padding: 32px 16px; color: #999; font-size: 13px; border-top: 1px solid #eee; margin-top: 40px; }\n    @media (max-width: 768px) {\n      .card-grid { grid-template-columns: 1fr; }\n      .header h1 { font-size: 22px; }\n      .article-detail { padding: 20px; }\n    }\n  </style>\n</head>\n<body>\n  <header class=\"header\">\n    <h1>保险智汇</h1>\n    <p>美国华人保险资讯平台 | 每日更新 · 专业可信赖</p>\n    <nav class=\"nav\">\n      <a href=\"?page=home\" class=\"${page === 'home' ? 'active' : ''}\">首页</a>\n      <a href=\"?page=home&date=${today}\">今日晨报</a>\n      <a href=\"?page=home&date=\">历史归档</a>\n    </nav>\n  </header>\n  <main class=\"container\">\n    ${mainContent}\n  </main>\n  <footer class=\"footer\">\n    <p>保险智汇 &copy; ${new Date().getFullYear()} | AI 驱动的保险资讯平台 | 内容仅供参考，不构成保险建议</p>\n  </footer>\n</body>\n</html>`;\n\nconst html = baseTemplate;\nreturn [{ json: { html, render_mode: \"template\" } }];"
+      }
+    },
+    {
+      "id": "76a7b8c9-d0e1-4f01-e234-567890120307",
+      "name": "Respond HTML",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1500,
+        0
+      ],
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{ $json.html }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "text/html; charset=utf-8"
+              },
+              {
+                "name": "Cache-Control",
+                "value": "public, max-age=300"
+              }
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Web Request": {
+      "main": [
+        [
+          {
+            "node": "Parse Route",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Route": {
+      "main": [
+        [
+          {
+            "node": "Read Newsletter Data",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Read Library Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Newsletter Data": {
+      "main": [
+        [
+          {
+            "node": "Merge Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Library Data": {
+      "main": [
+        [
+          {
+            "node": "Merge Data",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge Data": {
+      "main": [
+        [
+          {
+            "node": "Render HTML Template",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Render HTML Template": {
+      "main": [
+        [
+          {
+            "node": "Respond HTML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "pinData": {}
+}
