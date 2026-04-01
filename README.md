@@ -261,3 +261,25 @@ Insurance Broker (platform user) → selects content → forwards to → US Chin
 ## License
 
 Private project. All rights reserved.
+
+## Workflow Review
+
+See `WORKFLOW_REVIEW_AND_UPGRADE_PLAN.md` for a production-grade n8n upgrade plan and a detailed audit of the current workflows.
+
+## Codex Workflow Variants
+
+Additional non-destructive workflow variants are available under `workflows/`:
+- `codex-workflow-a-daily-newsletter.json`
+- `codex-workflow-b-content-library.json`
+- `codex-workflow-c-web-platform.json`
+
+These files keep original workflows unchanged and include updated prompts plus template-based HTML rendering for web output.
+
+## Merge-ready Replay Files
+
+If you failed to merge previous Codex changes, use these replay files directly:
+- `workflows/codex-workflow-a-daily-newsletter-merge-ready.json`
+- `workflows/codex-workflow-b-content-library-merge-ready.json`
+- `workflows/codex-workflow-c-web-platform-merge-ready.json`
+
+See `MERGE_READY_NOTES.md` for included adjustments.

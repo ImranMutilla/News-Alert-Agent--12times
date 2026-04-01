@@ -1,0 +1,412 @@
+{
+  "name": "Codex Module A - Daily Insurance Newsletter",
+  "nodes": [
+    {
+      "id": "f1a0b1c2-d3e4-4f56-a7b8-c9d0e1f2a3b4",
+      "name": "Daily 7AM Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 7,
+              "triggerAtMinute": 0
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "a2b3c4d5-e6f7-4a8b-9c0d-1e2f3a4b5c6d",
+      "name": "RSS - Insurance General",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1,
+      "position": [
+        280,
+        -200
+      ],
+      "parameters": {
+        "url": "https://news.google.com/rss/search?q=insurance+USA+when:24h&hl=en-US&gl=US&ceid=US:en"
+      }
+    },
+    {
+      "id": "b3c4d5e6-f7a8-4b9c-0d1e-2f3a4b5c6d7e",
+      "name": "RSS - Life Insurance",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1,
+      "position": [
+        280,
+        0
+      ],
+      "parameters": {
+        "url": "https://news.google.com/rss/search?q=life+insurance+USA+when:24h&hl=en-US&gl=US&ceid=US:en"
+      }
+    },
+    {
+      "id": "c4d5e6f7-a8b9-4c0d-1e2f-3a4b5c6d7e8f",
+      "name": "RSS - Annuity Retirement",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1,
+      "position": [
+        280,
+        200
+      ],
+      "parameters": {
+        "url": "https://news.google.com/rss/search?q=annuity+retirement+planning+USA+when:24h&hl=en-US&gl=US&ceid=US:en"
+      }
+    },
+    {
+      "id": "d5e6f7a8-b9c0-4d1e-2f3a-4b5c6d7e8f90",
+      "name": "Merge Feeds 1",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        560,
+        -100
+      ],
+      "parameters": {
+        "mode": "append"
+      }
+    },
+    {
+      "id": "e6f7a8b9-c0d1-4e2f-3a4b-5c6d7e8f9001",
+      "name": "Merge All Feeds",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        840,
+        0
+      ],
+      "parameters": {
+        "mode": "append"
+      }
+    },
+    {
+      "id": "f7a8b9c0-d1e2-4f3a-4b5c-6d7e8f900112",
+      "name": "Dedup Score Filter",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1120,
+        0
+      ],
+      "parameters": {
+        "jsCode": "// === Dedup + Relevance Scoring + Sort ===\nconst items = $input.all();\nconst seen = new Map();\n\n// High-value keywords for insurance relevance scoring\nconst highKeywords = ['life insurance', 'annuity', 'retirement', 'pension', 'death benefit', 'whole life', 'term life', 'universal life', 'iul', 'fixed annuity', 'variable annuity'];\nconst midKeywords = ['insurance', 'coverage', 'premium', 'policy', 'beneficiary', 'underwriting', 'claim', 'financial planning', 'estate', 'wealth', 'tax-deferred'];\nconst negativeKeywords = ['auto insurance', 'car insurance', 'home insurance', 'property insurance', 'pet insurance', 'travel insurance'];\n\nfor (const item of items) {\n  const title = (item.json.title || '').trim();\n  const titleLower = title.toLowerCase();\n  const content = (item.json.content || item.json.contentSnippet || '').toLowerCase();\n  const combined = titleLower + ' ' + content;\n\n  // Dedup: normalize title to create a key\n  const dedupKey = titleLower.replace(/[^a-z0-9]/g, '').substring(0, 60);\n  if (!dedupKey || seen.has(dedupKey)) continue;\n\n  // Relevance scoring\n  let score = 0;\n  for (const kw of highKeywords) {\n    if (combined.includes(kw)) score += 15;\n  }\n  for (const kw of midKeywords) {\n    if (combined.includes(kw)) score += 5;\n  }\n  for (const kw of negativeKeywords) {\n    if (combined.includes(kw)) score -= 20;\n  }\n\n  // Skip very low relevance\n  if (score < 5) continue;\n\n  item.json._relevanceScore = score;\n  item.json._source = 'google_news_rss';\n  item.json._fetchDate = new Date().toISOString().split('T')[0];\n  seen.set(dedupKey, item);\n}\n\n// Sort by score descending\nconst results = Array.from(seen.values());\nresults.sort((a, b) => (b.json._relevanceScore || 0) - (a.json._relevanceScore || 0));\n\n// Return top results (will be limited by next node)\nreturn results;"
+      }
+    },
+    {
+      "id": "a8b9c0d1-e2f3-4a4b-5c6d-7e8f90011223",
+      "name": "Limit Top 10",
+      "type": "n8n-nodes-base.itemLists",
+      "typeVersion": 3,
+      "position": [
+        1400,
+        0
+      ],
+      "parameters": {
+        "operation": "limit",
+        "maxItems": 10
+      }
+    },
+    {
+      "id": "b9c0d1e2-f3a4-4b5c-6d7e-8f9001122334",
+      "name": "AI Translate Rewrite",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1,
+      "position": [
+        1680,
+        0
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "",
+          "name": "openAiApi"
+        }
+      },
+      "parameters": {
+        "operation": "chat",
+        "model": "gpt-4o-mini",
+        "messages": {
+          "values": [
+            {
+              "role": "user",
+              "content": "你是一位服务于美国华人市场的资深保险经纪人与内容主编，同时也是一名擅长客户教育型内容改写的顾问。\n\n你的任务不是简单翻译英文新闻，而是将美国最新的保险/财经英文新闻，重写为适合发给中文客户阅读的图文内容。重点是：帮助在美国生活的华人客户看懂这条新闻对家庭财务、税务规划、风险保障或退休准备的实际意义，从而建立他们对保险经纪专业度的信任。\n\n【受众与基调】\n- 阅读对象：在美国生活的华人家庭、高净值人群及新移民\n- 内容使用者：保险经纪（他们会把内容转发给潜在客户或现有客户）\n- 语气设定：专业、亲切、客观、可信\n- 不要制造焦虑\n- 不要使用生硬直译\n- 不要使用强烈推销话术（No hard selling）\n- 更像经验丰富的顾问在“帮客户读懂新闻”，而不是销售在借新闻推销产品\n\n【核心目标】\n请围绕新闻内容完成以下任务：\n1. 提炼新闻真正值得关注的重点\n2. 用中文自然改写，而不是逐句翻译\n3. 解释这条新闻对美国华人家庭财务、税务规划、退休保障或保险认知的实际意义\n4. 帮助保险经纪通过内容建立客户信任，而不是直接推销产品\n\n【重要边界】\n- 不要编造原文没有的信息\n- 如果原文信息有限，只能基于已提供内容做谨慎重写\n- 不要做法律、税务、投资或收益承诺\n- 不要因为一条新闻就直接得出“某产品一定适合你”的结论\n- 不要过度放大风险或结论\n- 可以在结尾自然体现“建议结合个人情况与专业保险经纪沟通”，但不能生硬销售\n\n【写作要求】\n- 中文字数控制在 300–400 字之间\n- 内容适合手机端阅读\n- 分段要多\n- 句子要短\n- 表达要自然、有温度、有顾问感\n- 对于专业美国专有名词（如 Annuity, Whole Life, Premium），在中文后用括号保留英文原文，以增强专业感\n- 不要写成媒体报道口吻，也不要写成朋友圈情绪文\n\n【HTML 排版要求】\n`chinese_content_html` 必须使用规范、可直接渲染的 HTML 富文本，并尽量包含以下标签：\n- `<h3>`：用于提炼段落核心\n- `<p>`：用于正文分段\n- `<b>`：用于加粗关键信息\n- `<ul><li>`：适合时用于列重点\n要求：\n- HTML 标签必须闭合\n- 不要输出 markdown\n- 不要输出无关标签\n- 至少包含 1 个 `<h3>`、3 个 `<p>`、1 个 `<b>`\n- 如果内容适合列重点，请加入 `<ul><li>`\n\n【原文信息】\n英文标题：{{$json.title}}\n原文摘要：{{$json.contentSnippet || $json.content}}\n原文链接：{{$json.link}}\n\n【输出 JSON 结构要求】\n请仅输出合法的 JSON 对象，不要包含 markdown 代码块（```json）或任何其他说明文字。\n\n{\n  \"category\": \"请从以下选项中选择最贴切的一个：life_insurance, annuity, retirement, family_finance, industry_news, regulation\",\n  \"chinese_title\": \"生成一个吸引人、适合客户阅读、不过度标题党的中文标题（不超过25字）\",\n  \"chinese_summary\": \"一句话中文总结，适合作为朋友圈或私聊转发语（不超过50字）\",\n  \"chinese_content_html\": \"带有完整 HTML 标签、可直接渲染的正文内容\",\n  \"tags\": \"提取2-3个中文标签，用逗号分隔，如：退休规划,税务影响,家庭保障\",\n  \"image_prompt\": \"根据新闻内容，构思一条纯英文配图 Prompt。图片应更贴近美国家庭生活、专业顾问沟通、退休规划或财务讨论场景。要求：warm lighting, professional, high quality, realistic photography, no text or words in image.\"\n}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "c0d1e2f3-a4b5-4c6d-7e8f-900112233445",
+      "name": "Parse & Build Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1960,
+        0
+      ],
+      "parameters": {
+        "jsCode": "// === Parse AI Output & Build Final Record ===\nconst items = $input.all();\nconst results = [];\n\nfor (const item of items) {\n  const raw = item.json;\n  let aiOutput;\n\n  try {\n    // Try to parse the AI response as JSON\n    let responseText = raw.text || raw.message?.content || raw.choices?.[0]?.message?.content || '';\n    // Remove markdown code block markers if present\n    responseText = responseText.replace(/```json\\n?/g, '').replace(/```\\n?/g, '').trim();\n    aiOutput = JSON.parse(responseText);\n  } catch (e) {\n    // If parsing fails, create a fallback\n    aiOutput = {\n      zh_title: '(AI解析失败) ' + (raw.title || '未知标题'),\n      zh_summary: '内容解析失败，请人工审核',\n      zh_content_html: '<p>AI 内容生成失败，原始链接：' + (raw.link || '') + '</p>',\n      category: 'industry_news',\n      image_prompt: 'professional insurance office with warm lighting, modern design',\n      tags: ['待审核']\n    };\n  }\n\n  // Build image URL via Pollinations AI\n  const imageUrl = 'https://image.pollinations.ai/prompt/' + encodeURIComponent(aiOutput.image_prompt || 'professional insurance concept');\n\n  // Get original item data from the previous RSS nodes\n  const originalTitle = raw.title || '';\n  const originalLink = raw.link || '';\n  const originalPubDate = raw.pubDate || '';\n  const fetchDate = raw._fetchDate || new Date().toISOString().split('T')[0];\n\n  results.push({\n    json: {\n      zh_title: aiOutput.chinese_title || aiOutput.zh_title,\n      zh_summary: aiOutput.chinese_summary || aiOutput.zh_summary,\n      zh_content_html: aiOutput.chinese_content_html || aiOutput.zh_content_html,\n      category: aiOutput.category,\n      tags: (aiOutput.tags || []).join(', '),\n      image_prompt: aiOutput.image_prompt,\n      image_url: imageUrl,\n      original_title: originalTitle,\n      original_link: originalLink,\n      original_pub_date: originalPubDate,\n      fetch_date: fetchDate,\n      publish_date: new Date().toISOString(),\n      status: 'pending_review',\n      content_type: 'newsletter',\n      relevance_score: raw._relevanceScore || 0\n    }\n  });\n}\n\nreturn results;"
+      }
+    },
+    {
+      "id": "d1e2f3a4-b5c6-4d7e-8f90-011223344556",
+      "name": "Save to Newsletter Sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        2240,
+        0
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "",
+          "name": "googleSheetsOAuth2Api"
+        }
+      },
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "",
+          "mode": "list"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "newsletter",
+          "mode": "list"
+        },
+        "options": {},
+        "columns": {
+          "mappingMode": "defineBelow",
+          "values": [
+            {
+              "column": "Date",
+              "value": "={{ $json.fetch_date }}"
+            },
+            {
+              "column": "Category",
+              "value": "={{ $json.category }}"
+            },
+            {
+              "column": "Chinese Title",
+              "value": "={{ $json.zh_title }}"
+            },
+            {
+              "column": "Chinese Summary",
+              "value": "={{ $json.zh_summary }}"
+            },
+            {
+              "column": "Chinese Content HTML",
+              "value": "={{ $json.zh_content_html }}"
+            },
+            {
+              "column": "Tags",
+              "value": "={{ $json.tags }}"
+            },
+            {
+              "column": "Image URL",
+              "value": "={{ $json.image_url }}"
+            },
+            {
+              "column": "Image Prompt",
+              "value": "={{ $json.image_prompt }}"
+            },
+            {
+              "column": "Original Title",
+              "value": "={{ $json.original_title }}"
+            },
+            {
+              "column": "Original Link",
+              "value": "={{ $json.original_link }}"
+            },
+            {
+              "column": "Original Pub Date",
+              "value": "={{ $json.original_pub_date }}"
+            },
+            {
+              "column": "Publish Timestamp",
+              "value": "={{ $json.publish_date }}"
+            },
+            {
+              "column": "Status",
+              "value": "={{ $json.status }}"
+            },
+            {
+              "column": "Content Type",
+              "value": "={{ $json.content_type }}"
+            },
+            {
+              "column": "Relevance Score",
+              "value": "={{ $json.relevance_score }}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "e2f3a4b5-c6d7-4e8f-9011-223344556677",
+      "name": "Trigger Codex Workflow B",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1,
+      "position": [
+        2520,
+        0
+      ],
+      "parameters": {
+        "workflowId": "codex-workflow-b-content-library",
+        "options": {
+          "waitForSubWorkflow": false
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Daily 7AM Trigger": {
+      "main": [
+        [
+          {
+            "node": "RSS - Insurance General",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "RSS - Life Insurance",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "RSS - Annuity Retirement",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RSS - Insurance General": {
+      "main": [
+        [
+          {
+            "node": "Merge Feeds 1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RSS - Life Insurance": {
+      "main": [
+        [
+          {
+            "node": "Merge Feeds 1",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge Feeds 1": {
+      "main": [
+        [
+          {
+            "node": "Merge All Feeds",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RSS - Annuity Retirement": {
+      "main": [
+        [
+          {
+            "node": "Merge All Feeds",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge All Feeds": {
+      "main": [
+        [
+          {
+            "node": "Dedup Score Filter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Dedup Score Filter": {
+      "main": [
+        [
+          {
+            "node": "Limit Top 10",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Limit Top 10": {
+      "main": [
+        [
+          {
+            "node": "AI Translate Rewrite",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Translate Rewrite": {
+      "main": [
+        [
+          {
+            "node": "Parse & Build Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse & Build Output": {
+      "main": [
+        [
+          {
+            "node": "Save to Newsletter Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save to Newsletter Sheet": {
+      "main": [
+        [
+          {
+            "node": "Trigger Codex Workflow B",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Trigger Codex Workflow B": {
+      "main": [
+        []
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "pinData": {}
+}
