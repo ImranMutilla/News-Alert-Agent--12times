@@ -1,0 +1,248 @@
+{
+  "name": "Module A - Daily Insurance Newsletter",
+  "nodes": [
+    {
+      "id": "f1a0b1c2-d3e4-4f56-a7b8-c9d0e1f2a3b4",
+      "name": "Daily 7AM Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [0, 0],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 7,
+              "triggerAtMinute": 0
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "a2b3c4d5-e6f7-4a8b-9c0d-1e2f3a4b5c6d",
+      "name": "RSS - Insurance General",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1,
+      "position": [280, -200],
+      "parameters": {
+        "url": "https://news.google.com/rss/search?q=insurance+USA+when:24h&hl=en-US&gl=US&ceid=US:en"
+      }
+    },
+    {
+      "id": "b3c4d5e6-f7a8-4b9c-0d1e-2f3a4b5c6d7e",
+      "name": "RSS - Life Insurance",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1,
+      "position": [280, 0],
+      "parameters": {
+        "url": "https://news.google.com/rss/search?q=life+insurance+USA+when:24h&hl=en-US&gl=US&ceid=US:en"
+      }
+    },
+    {
+      "id": "c4d5e6f7-a8b9-4c0d-1e2f-3a4b5c6d7e8f",
+      "name": "RSS - Annuity Retirement",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1,
+      "position": [280, 200],
+      "parameters": {
+        "url": "https://news.google.com/rss/search?q=annuity+retirement+planning+USA+when:24h&hl=en-US&gl=US&ceid=US:en"
+      }
+    },
+    {
+      "id": "d5e6f7a8-b9c0-4d1e-2f3a-4b5c6d7e8f90",
+      "name": "Merge Feeds 1",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [560, -100],
+      "parameters": {
+        "mode": "append"
+      }
+    },
+    {
+      "id": "e6f7a8b9-c0d1-4e2f-3a4b-5c6d7e8f9001",
+      "name": "Merge All Feeds",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [840, 0],
+      "parameters": {
+        "mode": "append"
+      }
+    },
+    {
+      "id": "f7a8b9c0-d1e2-4f3a-4b5c-6d7e8f900112",
+      "name": "Dedup Score Filter",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 0],
+      "parameters": {
+        "jsCode": "// === Dedup + Relevance Scoring + Sort ===\nconst items = $input.all();\nconst seen = new Map();\n\n// High-value keywords for insurance relevance scoring\nconst highKeywords = ['life insurance', 'annuity', 'retirement', 'pension', 'death benefit', 'whole life', 'term life', 'universal life', 'iul', 'fixed annuity', 'variable annuity'];\nconst midKeywords = ['insurance', 'coverage', 'premium', 'policy', 'beneficiary', 'underwriting', 'claim', 'financial planning', 'estate', 'wealth', 'tax-deferred'];\nconst negativeKeywords = ['auto insurance', 'car insurance', 'home insurance', 'property insurance', 'pet insurance', 'travel insurance'];\n\nfor (const item of items) {\n  const title = (item.json.title || '').trim();\n  const titleLower = title.toLowerCase();\n  const content = (item.json.content || item.json.contentSnippet || '').toLowerCase();\n  const combined = titleLower + ' ' + content;\n\n  // Dedup: normalize title to create a key\n  const dedupKey = titleLower.replace(/[^a-z0-9]/g, '').substring(0, 60);\n  if (!dedupKey || seen.has(dedupKey)) continue;\n\n  // Relevance scoring\n  let score = 0;\n  for (const kw of highKeywords) {\n    if (combined.includes(kw)) score += 15;\n  }\n  for (const kw of midKeywords) {\n    if (combined.includes(kw)) score += 5;\n  }\n  for (const kw of negativeKeywords) {\n    if (combined.includes(kw)) score -= 20;\n  }\n\n  // Skip very low relevance\n  if (score < 5) continue;\n\n  item.json._relevanceScore = score;\n  item.json._source = 'google_news_rss';\n  item.json._fetchDate = new Date().toISOString().split('T')[0];\n  seen.set(dedupKey, item);\n}\n\n// Sort by score descending\nconst results = Array.from(seen.values());\nresults.sort((a, b) => (b.json._relevanceScore || 0) - (a.json._relevanceScore || 0));\n\n// Return top results (will be limited by next node)\nreturn results;"
+      }
+    },
+    {
+      "id": "a8b9c0d1-e2f3-4a4b-5c6d-7e8f90011223",
+      "name": "Limit Top 10",
+      "type": "n8n-nodes-base.itemLists",
+      "typeVersion": 3,
+      "position": [1400, 0],
+      "parameters": {
+        "operation": "limit",
+        "maxItems": 10
+      }
+    },
+    {
+      "id": "b9c0d1e2-f3a4-4b5c-6d7e-8f9001122334",
+      "name": "AI Translate Rewrite",
+      "type": "n8n-nodes-base.googleGemini",
+      "typeVersion": 1,
+      "position": [1680, 0],
+      "credentials": {
+        "googleGeminiApi": {
+          "id": "",
+          "name": "googleGeminiApi"
+        }
+      },
+      "parameters": {
+        "resource": "chat",
+        "operation": "generate",
+        "model": "gemini-1.5-flash",
+        "prompt": "你是一名服务美国华人社区的资深保险经纪人兼内容编辑。你的任务是将以下英文保险新闻改写为适合保险经纪转发给美国华人客户的中文图文素材。\n\n【改写要求】\n1. 语气亲切专业，避免行业黑话，让普通家庭也能理解\n2. 必须解释这条新闻对普通家庭的财务规划、退休保障或人寿保障的实际意义\n3. 结尾自然引导读者关注家庭保障话题（不要硬广）\n4. 使用 HTML 排版：<h3> 标题、<p> 段落、<b> 加粗核心概念、<ul><li> 罗列要点\n5. 正文约 300-400 字\n6. 为文章构思一张高质量配图的英文描述（用于 AI 生图）\n7. 给这条新闻分配一个分类标签，从以下选项中选一个：life_insurance / annuity / retirement / family_finance / industry_news / regulation\n\n【输出格式】严格输出 JSON，不要包含 markdown 代码块：\n{\n  \"zh_title\": \"吸引人的中文标题\",\n  \"zh_summary\": \"一句话中文摘要（50字以内）\",\n  \"zh_content_html\": \"带 HTML 标签的中文正文\",\n  \"category\": \"分类标签\",\n  \"image_prompt\": \"英文配图画面描述，要求温馨、专业、高质量\",\n  \"tags\": [\"标签1\", \"标签2\", \"标签3\"]\n}\n\n【原始新闻】\n标题：{{$json.title}}\n链接：{{$json.link}}\n发布时间：{{$json.pubDate}}\n内容摘要：{{$json.contentSnippet}}"
+      }
+    },
+    {
+      "id": "c0d1e2f3-a4b5-4c6d-7e8f-900112233445",
+      "name": "Parse & Build Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1960, 0],
+      "parameters": {
+        "jsCode": "// === Parse AI Output & Build Final Record ===\nconst items = $input.all();\nconst results = [];\n\nfor (const item of items) {\n  const raw = item.json;\n  let aiOutput;\n\n  try {\n    // Try to parse the AI response as JSON\n    let responseText = raw.text || raw.message?.content || '';\n    // Remove markdown code block markers if present\n    responseText = responseText.replace(/```json\\n?/g, '').replace(/```\\n?/g, '').trim();\n    aiOutput = JSON.parse(responseText);\n  } catch (e) {\n    // If parsing fails, create a fallback\n    aiOutput = {\n      zh_title: '(AI解析失败) ' + (raw.title || '未知标题'),\n      zh_summary: '内容解析失败，请人工审核',\n      zh_content_html: '<p>AI 内容生成失败，原始链接：' + (raw.link || '') + '</p>',\n      category: 'industry_news',\n      image_prompt: 'professional insurance office with warm lighting, modern design',\n      tags: ['待审核']\n    };\n  }\n\n  // Build image URL via Pollinations AI\n  const imageUrl = 'https://image.pollinations.ai/prompt/' + encodeURIComponent(aiOutput.image_prompt || 'professional insurance concept');\n\n  // Get original item data from the previous RSS nodes\n  const originalTitle = raw.title || '';\n  const originalLink = raw.link || '';\n  const originalPubDate = raw.pubDate || '';\n  const fetchDate = raw._fetchDate || new Date().toISOString().split('T')[0];\n\n  results.push({\n    json: {\n      zh_title: aiOutput.zh_title,\n      zh_summary: aiOutput.zh_summary,\n      zh_content_html: aiOutput.zh_content_html,\n      category: aiOutput.category,\n      tags: (aiOutput.tags || []).join(', '),\n      image_prompt: aiOutput.image_prompt,\n      image_url: imageUrl,\n      original_title: originalTitle,\n      original_link: originalLink,\n      original_pub_date: originalPubDate,\n      fetch_date: fetchDate,\n      publish_date: new Date().toISOString(),\n      status: 'pending_review',\n      content_type: 'newsletter',\n      relevance_score: raw._relevanceScore || 0\n    }\n  });\n}\n\nreturn results;"
+      }
+    },
+    {
+      "id": "d1e2f3a4-b5c6-4d7e-8f90-011223344556",
+      "name": "Save to Newsletter Sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [2240, 0],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "",
+          "name": "googleSheetsOAuth2Api"
+        }
+      },
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "",
+          "mode": "list"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "newsletter",
+          "mode": "list"
+        },
+        "options": {},
+        "columns": {
+          "mappingMode": "defineBelow",
+          "values": [
+            { "column": "Date", "value": "={{ $json.fetch_date }}" },
+            { "column": "Category", "value": "={{ $json.category }}" },
+            { "column": "Chinese Title", "value": "={{ $json.zh_title }}" },
+            { "column": "Chinese Summary", "value": "={{ $json.zh_summary }}" },
+            { "column": "Chinese Content HTML", "value": "={{ $json.zh_content_html }}" },
+            { "column": "Tags", "value": "={{ $json.tags }}" },
+            { "column": "Image URL", "value": "={{ $json.image_url }}" },
+            { "column": "Image Prompt", "value": "={{ $json.image_prompt }}" },
+            { "column": "Original Title", "value": "={{ $json.original_title }}" },
+            { "column": "Original Link", "value": "={{ $json.original_link }}" },
+            { "column": "Original Pub Date", "value": "={{ $json.original_pub_date }}" },
+            { "column": "Publish Timestamp", "value": "={{ $json.publish_date }}" },
+            { "column": "Status", "value": "={{ $json.status }}" },
+            { "column": "Content Type", "value": "={{ $json.content_type }}" },
+            { "column": "Relevance Score", "value": "={{ $json.relevance_score }}" }
+          ]
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Daily 7AM Trigger": {
+      "main": [
+        [
+          { "node": "RSS - Insurance General", "type": "main", "index": 0 },
+          { "node": "RSS - Life Insurance", "type": "main", "index": 0 },
+          { "node": "RSS - Annuity Retirement", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "RSS - Insurance General": {
+      "main": [
+        [
+          { "node": "Merge Feeds 1", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "RSS - Life Insurance": {
+      "main": [
+        [
+          { "node": "Merge Feeds 1", "type": "main", "index": 1 }
+        ]
+      ]
+    },
+    "Merge Feeds 1": {
+      "main": [
+        [
+          { "node": "Merge All Feeds", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "RSS - Annuity Retirement": {
+      "main": [
+        [
+          { "node": "Merge All Feeds", "type": "main", "index": 1 }
+        ]
+      ]
+    },
+    "Merge All Feeds": {
+      "main": [
+        [
+          { "node": "Dedup Score Filter", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Dedup Score Filter": {
+      "main": [
+        [
+          { "node": "Limit Top 10", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Limit Top 10": {
+      "main": [
+        [
+          { "node": "AI Translate Rewrite", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "AI Translate Rewrite": {
+      "main": [
+        [
+          { "node": "Parse & Build Output", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Parse & Build Output": {
+      "main": [
+        [
+          { "node": "Save to Newsletter Sheet", "type": "main", "index": 0 }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "pinData": {}
+}

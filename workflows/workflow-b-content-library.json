@@ -1,0 +1,167 @@
+{
+  "name": "Module B - Insurance Content Library Generator",
+  "nodes": [
+    {
+      "id": "10a1b2c3-d4e5-4f67-89ab-cdef01234567",
+      "name": "Daily 8AM Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [0, 0],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 8,
+              "triggerAtMinute": 0
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "20b2c3d4-e5f6-4a78-9bcd-ef0123456789",
+      "name": "Generate Topic List",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [300, 0],
+      "parameters": {
+        "jsCode": "// === Daily Content Topic Generator ===\n// Rotates through content categories to ensure diverse output\n\nconst today = new Date();\nconst dayOfWeek = today.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat\nconst dateStr = today.toISOString().split('T')[0];\n\n// Content templates by category - rotate through the week\nconst weeklyTopics = [\n  // Sunday: family & estate\n  [\n    {\n      category: 'family_finance',\n      content_type: 'case_study',\n      prompt_topic: '一个美国华人家庭因为没有足够人寿保险保障，在意外发生后面临的财务困境。请编写一个教育性案例故事（虚构但合理），帮助读者理解人寿保险对家庭的重要性。',\n      target_audience: '有家庭的中青年华人'\n    },\n    {\n      category: 'life_insurance',\n      content_type: 'education',\n      prompt_topic: '科普文章：Term Life 和 Whole Life 保险的核心区别是什么？各适合什么样的家庭？用通俗易懂的语言解释，避免术语堆砌。',\n      target_audience: '保险新手客户'\n    }\n  ],\n  // Monday: retirement & annuity\n  [\n    {\n      category: 'annuity',\n      content_type: 'product_intro',\n      prompt_topic: '深入浅出介绍美国年金产品（Annuity）的基本类型：Fixed Annuity、Variable Annuity、Indexed Annuity。它们分别适合什么样的退休规划需求？',\n      target_audience: '40-60岁关注退休的客户'\n    },\n    {\n      category: 'retirement',\n      content_type: 'education',\n      prompt_topic: '美国退休规划101：Social Security、401(k)、IRA 和年金产品如何搭配？为美国华人家庭提供一个简单的退休收入规划框架。',\n      target_audience: '中年华人家庭'\n    }\n  ],\n  // Tuesday: client communication\n  [\n    {\n      category: 'life_insurance',\n      content_type: 'client_communication',\n      prompt_topic: '写一篇适合保险经纪发给潜在客户的\"破冰\"文章：为什么每个在美华人家庭都应该认真考虑人寿保险？从文化、家庭责任和财务安全三个角度入手。',\n      target_audience: '尚未购买保险的华人家庭'\n    },\n    {\n      category: 'family_finance',\n      content_type: 'case_study',\n      prompt_topic: '案例分享：一对在美华人夫妇如何通过合理配置人寿保险和年金，实现了子女教育金储备和自身退休保障的双重目标。',\n      target_audience: '有子女的华人家庭'\n    }\n  ],\n  // Wednesday: tax & wealth\n  [\n    {\n      category: 'life_insurance',\n      content_type: 'education',\n      prompt_topic: '人寿保险的税务优势：Cash Value 免税增长、Death Benefit 免所得税、Policy Loan 的灵活运用。用简单案例说明这些税务优势的实际价值。',\n      target_audience: '高收入华人家庭'\n    },\n    {\n      category: 'annuity',\n      content_type: 'product_intro',\n      prompt_topic: '什么是 IUL（Indexed Universal Life）？它如何兼顾保障和投资增长？适合什么样的客户？客观地介绍优缺点。',\n      target_audience: '对投资型保险感兴趣的客户'\n    }\n  ],\n  // Thursday: risk awareness\n  [\n    {\n      category: 'family_finance',\n      content_type: 'education',\n      prompt_topic: '家庭风险管理清单：作为在美华人，你的家庭保障是否有这些漏洞？从人寿保险、医疗保险、伞险（Umbrella）、长期护理等多维度帮读者自检。',\n      target_audience: '所有华人家庭'\n    },\n    {\n      category: 'life_insurance',\n      content_type: 'client_communication',\n      prompt_topic: '写一篇温暖而不煽情的文章：为什么\"年轻\"和\"健康\"正是购买人寿保险的最佳理由？帮助年轻华人客户理解尽早规划的经济优势。',\n      target_audience: '25-35岁年轻华人'\n    }\n  ],\n  // Friday: market trends\n  [\n    {\n      category: 'industry_news',\n      content_type: 'education',\n      prompt_topic: '2024-2025年美国人寿保险市场趋势解读：利率环境变化对保险产品的影响，以及华人客户应如何应对。',\n      target_audience: '关注市场的客户'\n    },\n    {\n      category: 'annuity',\n      content_type: 'case_study',\n      prompt_topic: '退休收入案例：一位60岁华人如何通过年金产品创建可持续的退休月收入流？从实际数字出发，让读者直观理解年金的价值。',\n      target_audience: '接近退休的客户'\n    }\n  ],\n  // Saturday: lifestyle & culture\n  [\n    {\n      category: 'family_finance',\n      content_type: 'client_communication',\n      prompt_topic: '中美保险观念差异：为什么在中国觉得\"不吉利\"的人寿保险，在美国却是家庭财务规划的基石？从文化角度帮助华人客户转变观念。',\n      target_audience: '新移民华人家庭'\n    },\n    {\n      category: 'retirement',\n      content_type: 'education',\n      prompt_topic: '在美华人的\"养老焦虑\"：不能完全依赖子女，Social Security 可能不够，如何用保险和年金产品构建属于自己的退休安全网？',\n      target_audience: '中老年华人'\n    }\n  ]\n];\n\nconst todaysTopics = weeklyTopics[dayOfWeek];\n\nreturn todaysTopics.map(topic => ({\n  json: {\n    ...topic,\n    generate_date: dateStr,\n    day_of_week: ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][dayOfWeek]\n  }\n}));"
+      }
+    },
+    {
+      "id": "30c3d4e5-f6a7-4b89-abcd-ef0123456780",
+      "name": "Split In Batches",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [600, 0],
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      }
+    },
+    {
+      "id": "40d4e5f6-a7b8-4c9a-bcde-f01234567890",
+      "name": "AI Generate Content",
+      "type": "n8n-nodes-base.googleGemini",
+      "typeVersion": 1,
+      "position": [900, 200],
+      "credentials": {
+        "googleGeminiApi": {
+          "id": "",
+          "name": "googleGeminiApi"
+        }
+      },
+      "parameters": {
+        "resource": "chat",
+        "operation": "generate",
+        "model": "gemini-1.5-flash",
+        "prompt": "你是一名专业的美国保险内容编辑，服务于面向美国华人社区的保险经纪团队。\n\n请根据以下主题，生成一篇高质量的中文图文素材。这篇内容将被保险经纪筛选后转发给他们的美国华人客户。\n\n【主题】{{$json.prompt_topic}}\n【目标读者】{{$json.target_audience}}\n【内容类型】{{$json.content_type}}\n\n【写作要求】\n1. 语气温暖专业，像一位值得信赖的朋友在分享有用知识\n2. 避免行业术语堆砌，英文专业词汇首次出现时附上中文解释\n3. 内容要有实用价值，读者看完能有\"学到了\"的感觉\n4. 适当融入美国华人生活场景，增强共鸣\n5. 结尾自然引导思考（不要硬广或CTA）\n6. HTML 排版：用 <h3> 标题，<p> 段落，<b> 加粗关键概念，<ul><li> 列举要点，<blockquote> 引用重要观点\n7. 正文 400-600 字\n8. 为文章设计一张配图的英文描述（温馨、专业、积极向上）\n\n【输出格式】严格输出 JSON，不要包含 markdown 代码块：\n{\n  \"zh_title\": \"吸引人的中文标题\",\n  \"zh_summary\": \"一句话摘要（50字以内）\",\n  \"zh_content_html\": \"带 HTML 标签的中文正文\",\n  \"category\": \"{{$json.category}}\",\n  \"content_type\": \"{{$json.content_type}}\",\n  \"image_prompt\": \"英文配图画面描述\",\n  \"tags\": [\"标签1\", \"标签2\", \"标签3\"],\n  \"target_audience\": \"{{$json.target_audience}}\"\n}"
+      }
+    },
+    {
+      "id": "50e5f6a7-b8c9-4dab-cdef-012345678901",
+      "name": "Parse Library Content",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1200, 200],
+      "parameters": {
+        "jsCode": "// === Parse AI generated content for library ===\nconst items = $input.all();\nconst results = [];\n\nfor (const item of items) {\n  let aiOutput;\n  try {\n    let text = item.json.text || item.json.message?.content || '';\n    text = text.replace(/```json\\n?/g, '').replace(/```\\n?/g, '').trim();\n    aiOutput = JSON.parse(text);\n  } catch (e) {\n    aiOutput = {\n      zh_title: '(解析失败) 请人工审核',\n      zh_summary: '内容生成异常',\n      zh_content_html: '<p>AI 内容生成失败，请重试或人工编写。</p>',\n      category: 'uncategorized',\n      content_type: 'unknown',\n      image_prompt: 'professional financial planning concept, warm office environment',\n      tags: ['待审核'],\n      target_audience: '通用'\n    };\n  }\n\n  const imageUrl = 'https://image.pollinations.ai/prompt/' + encodeURIComponent(aiOutput.image_prompt || 'insurance concept illustration');\n\n  results.push({\n    json: {\n      zh_title: aiOutput.zh_title,\n      zh_summary: aiOutput.zh_summary,\n      zh_content_html: aiOutput.zh_content_html,\n      category: aiOutput.category,\n      content_type: aiOutput.content_type,\n      tags: (aiOutput.tags || []).join(', '),\n      target_audience: aiOutput.target_audience,\n      image_prompt: aiOutput.image_prompt,\n      image_url: imageUrl,\n      generate_date: new Date().toISOString().split('T')[0],\n      publish_date: new Date().toISOString(),\n      status: 'pending_review',\n      source: 'ai_generated'\n    }\n  });\n}\n\nreturn results;"
+      }
+    },
+    {
+      "id": "60f6a7b8-c9d0-4ebc-def0-123456789012",
+      "name": "Save to Library Sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [1500, 200],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "",
+          "name": "googleSheetsOAuth2Api"
+        }
+      },
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "",
+          "mode": "list"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "content_library",
+          "mode": "list"
+        },
+        "options": {},
+        "columns": {
+          "mappingMode": "defineBelow",
+          "values": [
+            { "column": "Date", "value": "={{ $json.generate_date }}" },
+            { "column": "Category", "value": "={{ $json.category }}" },
+            { "column": "Content Type", "value": "={{ $json.content_type }}" },
+            { "column": "Chinese Title", "value": "={{ $json.zh_title }}" },
+            { "column": "Chinese Summary", "value": "={{ $json.zh_summary }}" },
+            { "column": "Chinese Content HTML", "value": "={{ $json.zh_content_html }}" },
+            { "column": "Tags", "value": "={{ $json.tags }}" },
+            { "column": "Target Audience", "value": "={{ $json.target_audience }}" },
+            { "column": "Image URL", "value": "={{ $json.image_url }}" },
+            { "column": "Image Prompt", "value": "={{ $json.image_prompt }}" },
+            { "column": "Publish Timestamp", "value": "={{ $json.publish_date }}" },
+            { "column": "Status", "value": "={{ $json.status }}" },
+            { "column": "Source", "value": "={{ $json.source }}" }
+          ]
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Daily 8AM Trigger": {
+      "main": [
+        [
+          { "node": "Generate Topic List", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Generate Topic List": {
+      "main": [
+        [
+          { "node": "Split In Batches", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Split In Batches": {
+      "main": [
+        [
+          { "node": "AI Generate Content", "type": "main", "index": 0 }
+        ],
+        []
+      ]
+    },
+    "AI Generate Content": {
+      "main": [
+        [
+          { "node": "Parse Library Content", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Parse Library Content": {
+      "main": [
+        [
+          { "node": "Save to Library Sheet", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Save to Library Sheet": {
+      "main": [
+        [
+          { "node": "Split In Batches", "type": "main", "index": 0 }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "pinData": {}
+}
